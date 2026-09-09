@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         String   @default("learner") // admin | learner
+  xp           Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  coursesCreated Course[]
+  progress       Progress[]
+  attempts       Attempt[]
+  achievements   UserAchievement[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  coverEmoji  String   @default("📦")
+  sourceType  String   @default("sample") // sample | pdf | md | docx
+  sourceName  String? // 学习宝典教材源文件名
+  /** 实操宝典手册源文件名（第二份文档，与 sourceName 并存） */
+  manualSourceName String?
+  sourceText  String   @default("")
+  /** 业务归属：一门业务 = 一门课程，如“线上保理”“信用证” */
+  business    String   @default("")
+  status      String   @default("ready") // generating | ready | failed
+  published   Boolean  @default(true) // 上架后才对学员可见
+  // —— 后台生成任务的实时状态（原 status 复用粗粒度，这里存细粒度进度）——
+  generationPhase String @default("idle") // idle|parsing|planning|writing|persisting
+  generationDone  Int    @default(0)
+  generationTotal Int    @default(0)
+  generationError String @default("")
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  createdBy User?      @relation(fields: [createdById], references: [id])
+  chapters  Chapter[]
+  progress  Progress[]
+  manualFlows ManualFlow[]
+}
+
+/** 实操宝典：操作手册里的一个流程（建档、报价配置、授信、新增资产……） */
+model ManualFlow {
+  id       String @id @default(cuid())
+  courseId String
+  order    Int
+  /** 流程名，如“企业建档流程” */
+  title    String
+  /** 一段人话说明这个流程要完成什么 */
+  goal     String @default("")
+  /** 该流程的手册原文（清理后的 Markdown/文本，供正文阅读） */
+  md       String @default("")
+  steps    ManualStep[]
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, order])
+}
+
+/** 流程里的一个阶段/步骤节点 */
+model ManualStep {
+  id     String @id @default(cuid())
+  flowId String
+  order  Int
+  /** step=普通步骤 decision=分支/判断 end=结束 */
+  kind   String @default("step")
+  /** 节点标题，如“提交账款（客户中心）” */
+  title  String
+  /** 操作端/角色标签，如“内管端”“客户端·核心企业” */
+  actor  String @default("")
+  /** 该节点下的操作明细（多条），换行分隔 */
+  detail String @default("")
+
+  flow ManualFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@unique([flowId, order])
+}
+
+model Chapter {
+  id             String @id @default(cuid())
+  courseId       String
+  order          Int
+  title          String
+  summary        String @default("")
+  notesMd        String @default("")
+  mindmapJson    String @default("[]")
+  passScore      Int    @default(60)
+
+  course     Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  cases      CaseStudy[]
+  questions  Question[]
+  attempts   Attempt[]
+  progress   Progress[]
+
+  @@unique([courseId, order])
+}
+
+model CaseStudy {
+  id        String @id @default(cuid())
+  chapterId String
+  title     String
+  scene     String
+  analysis  String
+  /** 业务元数据（封面 emoji / 参数芯片），由案例引擎在挂载时写入 */
+  metaJson  String @default("{}")
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+}
+
+model Question {
+  id          String @id @default(cuid())
+  chapterId   String
+  type        String // single | multi | judge
+  stem        String
+  optionsJson String @default("[]")
+  answerJson  String
+  explanation String @default("")
+  order       Int    @default(0)
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+}
+
+model Progress {
+  id          String    @id @default(cuid())
+  userId      String
+  courseId    String
+  chapterId   String?
+  status      String    @default("unlocked") // locked | unlocked | passed
+  bestScore   Int       @default(0)
+  stars       Int       @default(0)
+  attempts    Int       @default(0)
+  passedAt    DateTime?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+}
+
+model Attempt {
+  id          String   @id @default(cuid())
+  userId      String
+  chapterId   String
+  score       Int
+  passed      Boolean
+  answersJson String   @default("[]")
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  code        String @id
+  name        String
+  description String
+  emoji       String
+  xpReward    Int    @default(20)
+
+  users UserAchievement[]
+}
+
+model UserAchievement {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  unlockedAt DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [code], references: [code])
+
+  @@unique([userId, code])
+}
+
+model AppSetting {
+  key   String @id
+  value String
+}

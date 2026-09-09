@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+:root {
+  /* 主色 */
+  --primary-deep: #1846d1;
+  --primary: #2664fd;
+  --primary-hover: #4d85fd;
+  --primary-disabled: #c1dbff;
+  --primary-base: #e8f2ff;
+
+  /* 中性色 */
+  --neutral-title: #333333;
+  --neutral-text: #666666;
+  --neutral-tip: #999999;
+  --neutral-disable: #c2c2c2;
+  --neutral-border: #d9d9d9;
+  --neutral-divider: #e9e9e9;
+  --neutral-bg: #f4f4f4;
+  --neutral-card: #f8f8f8;
+
+  /* 功能色 */
+  --success: #1bc65c;
+  --warning: #fe9d00;
+  --error: #f84323;
+
+  /* 兼容旧变量名（仍被组件大量引用） */
+  --ink: var(--neutral-title);
+  --sea: var(--primary);
+  --sea-deep: var(--primary-deep);
+  --gold: var(--primary-hover);
+  --gold-2: var(--primary-disabled);
+  --sand: var(--primary-base);
+  --paper: #ffffff;
+  --coral: var(--error);
+  --mist: var(--neutral-tip);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-sea: var(--sea);
+  --color-sea-deep: var(--sea-deep);
+  --color-gold: var(--gold);
+  --color-gold-2: var(--gold-2);
+  --color-sand: var(--sand);
+  --color-paper: var(--paper);
+  --color-coral: var(--coral);
+  --color-mist: var(--mist);
+
+  /* 新增规范色，便于后续逐步替换 */
+  --color-primary: var(--primary);
+  --color-primary-deep: var(--primary-deep);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-disabled: var(--primary-disabled);
+  --color-primary-base: var(--primary-base);
+  --color-neutral-title: var(--neutral-title);
+  --color-neutral-text: var(--neutral-text);
+  --color-neutral-tip: var(--neutral-tip);
+  --color-neutral-border: var(--neutral-border);
+  --color-neutral-card: var(--neutral-card);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 480px at 8% -8%, var(--primary-base) 0%, transparent 55%),
+    radial-gradient(720px 420px at 100% 0%, var(--primary-base) 0%, transparent 50%),
+    var(--neutral-card);
+  background-attachment: fixed;
+  font-family: var(--font-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* 可点元素默认手型：Tailwind v4 preflight 不会给按钮设置 pointer，这里统一补上 */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  summary,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+.display {
+  font-family: var(--font-display), "KaiTi", serif;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid var(--neutral-border);
+  box-shadow: 0 18px 40px -28px rgba(24, 70, 209, 0.14);
+}
+
+.hero {
+  background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary) 58%, var(--primary-hover) 100%);
+  color: #fff;
+}
+
+.map-node {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.map-node:hover {
+  transform: translateY(-3px);
+}
+
+.xp-bar {
+  background: var(--primary-base);
+  overflow: hidden;
+}
+.xp-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+}
+
+.prose-notes h2 { font-size: 1.2rem; margin: 1.2rem 0 0.4rem; color: var(--ink); }
+.prose-notes h3 { font-size: 1.05rem; margin: 1rem 0 0.3rem; color: var(--ink); }
+.prose-notes p, .prose-notes li { line-height: 1.8; color: var(--neutral-text); }
+.prose-notes table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.92rem; }
+.prose-notes th, .prose-notes td { border: 1px solid var(--neutral-border); padding: 0.45rem 0.6rem; text-align: left; word-break: keep-all; }
+.prose-notes th:first-child,
+.prose-notes td:first-child { white-space: nowrap; }
+.prose-notes blockquote {
+  margin: 0.8rem 0;
+  padding: 0.6rem 0.9rem;
+  background: var(--primary-base);
+  border-left: 4px solid var(--primary);
+}
+.prose-notes ul { padding-left: 1.2rem; }
+
+/* 案例卷宗「风控签批」走 Markdown 时，保持与卡片正文一致的深字色 */
+.dossier-analysis .prose-notes p,
+.dossier-analysis .prose-notes li { color: var(--neutral-title); }
+
+/* ===== 知识脑图：横向布局（根在左，向右展开） ===== */

@@ -1,7 +1,11 @@
 import type { GeneratedCourse, GeneratedChapter, GeneratedQuestion } from "./types";
 import { prisma } from "./prisma";
 import {
+  GOLD_BOOK_STYLE,
   GOLD_STYLE,
+  cleanPdfText,
+  isManual,
+  splitBookSections,
   splitByTopChapters,
   teachChapter,
   stripCasesFromNotes,
@@ -40,9 +44,13 @@ function localOutline(rawText: string, filename: string) {
   if (!sections.length) {
     sections = [{ title: guessTitle(filename, rawText), body: rawText.slice(0, 5000) }];
   }
+  const titles = sections.map((s) => s.title).filter(Boolean);
+  const preview = titles.slice(0, 3).map((t) => `「${t}」`).join("、");
+  const more = titles.length > 3 ? "等主题" : "";
+  const description = `本课按教材一级章节拆为 ${titles.length} 关：${preview}${more}，涵盖核心概念、操作流程与案例。`;
   return {
     title: guessTitle(filename, rawText),
-    description: `按一级标题拆成 ${sections.length} 个关卡（几个一级标题几个关）。每关先精讲本小章节，再看脑图与案例，最后做测验通关。`,
+    description,
     coverEmoji: "📘",
     sections,
   };
@@ -67,17 +75,31 @@ export async function generateCourseWithAi(
   const chapters: GeneratedChapter[] = [];
   for (const [index, section] of outline.sections.entries()) {
     // 传整段一级标题正文；AI 自己按小章节组织笔记与脑图
-    const slice = section.body.slice(0, 7000);
+    const cleaned = cleanPdfText(section.body);
+    const slice = cleaned.slice(0, 8000);
+    const subs = splitBookSections(cleaned);
+    const manual = isManual(`${section.title}\n${cleaned.slice(0, 1600)}`);
+    const style = manual ? GOLD_STYLE : GOLD_BOOK_STYLE;
     try {
       onProgress?.({ stage: "writing", done: index, total: outline.sections.length });
       const chapter = await chatJson<GeneratedChapter>(client, settings.model, [
         {
           role: "system",
-          content: `${GOLD_STYLE}\n现在只写这一关（教材中的一个一级章节）。精讲不要写案例故事。案例只放在 cases。只输出 JSON。每题必须有 stem。`,
+          content: `${style}\n现在只写这一关（教材中的一个一级章节）。内容必须忠实本关教材原文，禁止套用别的业务或编造没讲过的内容。只输出 JSON。每题必须有 stem。`,
         },
         {
           role: "user",
-          content: `这是学习宝典第 ${index + 1} 关，建议标题：第 ${index + 1} 关 · ${section.title}\n\n请输出：{"title","summary","notesMd","mindmap":{"id","label","children":[{"id","label","children":[]}]},"cases":[{"title","scene","analysis"},{"title","scene","analysis"}],"questions":[{"type":"single","stem":"题干","options":["A","B","C","D"],"answer":[0],"explanation":"..."}]}\nnotesMd 沿用教材小章节（1.1 / 2.2 或 ## 小标题）来组织，只讲概念/主路径/字段/记住一句，禁止写真实案例。\nmindmap 一级 children 对应本章各小章节名称，每个小章节下挂 2~4 个要点分支。\ncases 写 2 个冲突场景。\nquestions 必须 5 道，每题都有 stem。配比 2 single、1 multi、2 judge。\n\n本关教材原文：\n${slice}`,
+          content: `这是学习宝典第 ${index + 1} 关，对应教材大章节：「${section.title}」。\n${
+            subs.length
+              ? `下面按教材小章节给出原文（共 ${subs.length} 节），小节名必须沿用，不要自创：\n\n${subs
+                  .map((s, i) => `〔小节 ${i + 1}〕${s.label}\n${s.body}`)
+                  .join("\n\n")}`
+              : `本关教材原文：\n${slice}`
+          }\n\n请输出 JSON：{"title","summary","notesMd","mindmap":{"id","label","children":[{"id","label","children":[]}]},"cases":[{"title","scene","analysis"}],"questions":[{"type":"single","stem":"题干","options":["A","B","C","D"],"answer":[0],"explanation":"..."}]}\n${
+            subs.length
+              ? "notesMd 中每个小节写一个「### 小节号+标题」独立小节，顺序与原文一致；mindmap 一级 children 对应上面各小节名。\n"
+              : ""
+          }cases 写 0～2 个假设的真实交易案例（主角+金额/账期+决策点）；不合适就给空数组。\nquestions 必须 5 道，每题都有 stem。配比 2 single、1 multi、2 judge。`,
         },
       ], 0.45);
       chapters.push(polishChapter(chapter, index, slice, filename));

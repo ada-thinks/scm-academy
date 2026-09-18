@@ -92,6 +92,8 @@ model Chapter {
   courseId       String
   order          Int
   title          String
+  /** 业务知识库教材标注的学习优先级：P1（最重点/最推荐）～P3，无标注则为空 */
+  priority       String @default("")
   summary        String @default("")
   notesMd        String @default("")
   mindmapJson    String @default("[]")

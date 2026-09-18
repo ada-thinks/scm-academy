@@ -35,6 +35,8 @@ export type GeneratedChapter = {
   summary: string;
   notesMd: string;
   mindmap: MindNode;
+  /** 业务知识库教材标注的学习优先级：P1（最重点/最推荐）～P3，可空 */
+  priority?: string;
   cases: GeneratedCase[];
   questions: GeneratedQuestion[];
 };

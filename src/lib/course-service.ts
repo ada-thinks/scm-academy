@@ -14,6 +14,7 @@ import {
   hasSource,
   loadManualSource,
   loadSource,
+  saveManualFile,
   saveManualSource,
   saveSource,
 } from "./source-store";
@@ -151,6 +152,7 @@ export async function createManualFromUpload(params: {
   }
   const flowCount = await replaceManualFlows(course.id, flows);
   await saveManualSource(course.id, text);
+  await saveManualFile(course.id, params.filename, params.buffer);
   const chapterCount = await prisma.chapter.count({ where: { courseId: course.id } });
   await prisma.course.update({
     where: { id: course.id },
@@ -315,7 +317,7 @@ async function runGeneration(params: RunParams) {
       }
     }
     if (purpose === "manual") {
-      await runBuildManual(courseId, text, filename);
+      await runBuildManual(courseId, text, filename, kind === "upload" ? params.buffer : undefined);
     } else {
       await runBuildTextbook(courseId, text, filename, forceLocal, kind);
     }
@@ -326,7 +328,7 @@ async function runGeneration(params: RunParams) {
 }
 
 /** 手册：解析成流程 → 整体替换 manualFlows（不动学习宝典） */
-async function runBuildManual(courseId: string, text: string, filename: string) {
+async function runBuildManual(courseId: string, text: string, filename: string, buffer?: Buffer) {
   const flows = parseManualFlows(text);
   if (!flows.length) throw new NoManualFlowError();
   await writeGen(courseId, {
@@ -337,6 +339,8 @@ async function runBuildManual(courseId: string, text: string, filename: string) 
   await writeGen(courseId, { generationPhase: "persisting" });
   await replaceManualFlows(courseId, flows);
   await saveManualSource(courseId, text);
+  // 上传时有原始文件则保留一份，供实操宝典页「下载这份文件」
+  if (buffer) await saveManualFile(courseId, filename, buffer);
   // 收尾：流程齐后若已有教材则上架（仅手册保持草稿）
   const chapterCount = await prisma.chapter.count({ where: { courseId } });
   await prisma.course.update({

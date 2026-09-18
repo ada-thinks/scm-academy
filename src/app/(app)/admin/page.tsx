@@ -21,6 +21,7 @@ export default async function AdminPage() {
       id: course.id,
       title: course.title,
       coverEmoji: course.coverEmoji,
+      sourceType: course.sourceType,
       sourceName: course.sourceName,
       manualSourceName: course.manualSourceName,
       business: course.business,

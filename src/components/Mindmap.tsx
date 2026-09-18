@@ -12,7 +12,7 @@ const GAP_X = 84; // 父子列水平间距
 const GAP_Y = 28; // 兄弟子树之间的最小净间距
 
 /** 各级最大盒宽（根可最宽），超出自动换行、绝不截断 */
-const BOX_CAP = [460, 380, 320, 280];
+const BOX_CAP = [560, 460, 400, 340];
 /** 各级字体大小（px） */
 const FONT = [14, 13, 12.5, 12];
 const LINE_H = 21; // 行高
@@ -30,19 +30,22 @@ function estWidth(text: string, fontSize: number) {
   return w;
 }
 
-/** 按文本测量节点盒：能一行放下就一行；放不下则换行并相应加高 */
+const ELLIPSIS_WIDTH = 14; // 省略号「…」的近似宽度，预留避免换行后末尾再挤省略号
+const MAX_ROWS = 2; // 一个节点最多显示两行，超出部分用尾部省略号
+
+/** 按文本测量节点盒：能一行放下就一行；放不下优先两行，并用尾部省略号收尾 */
 function measureBox(label: string, depth: number) {
   const cap = BOX_CAP[Math.min(depth, BOX_CAP.length - 1)];
   const font = FONT[Math.min(depth, FONT.length - 1)];
   const raw = estWidth(label, font);
-  const contentCap = cap - PAD_X;
-  const rows = Math.max(1, Math.ceil(raw / contentCap + 0.12));
-  const w = Math.min(raw, cap);
-  return {
-    w: Math.max(w + PAD_X, 52),
-    h: rows * LINE_H + PAD_Y,
-    font,
-  };
+  const innerCap = cap - PAD_X;
+  // 单行能装下：盒宽=文本宽（留一点余量，避免边缘处把字挤到下一行）
+  if (raw <= innerCap) {
+    return { w: Math.max(Math.ceil(raw + PAD_X + 8), 52), h: LINE_H + PAD_Y, font, rows: 1, clamp: false };
+  }
+  // 两行能装下：盒宽取满用于渲染，占位则按两行算（把省略号长度考虑进去）
+  const rows = Math.min(MAX_ROWS, Math.ceil((raw + ELLIPSIS_WIDTH) / innerCap));
+  return { w: cap, h: rows * LINE_H + PAD_Y, font, rows, clamp: raw > rows * innerCap };
 }
 
 const BOX_STYLE = [
@@ -60,6 +63,8 @@ type LNode = {
   w: number;
   h: number;
   font: number;
+  rows: number;
+  clamp: boolean;
   y: number; // 节点中心纵坐标（绝对）
   rel: number; // 节点中心相对本子树顶部的偏移
   pos?: number; // 节点中心相对父 band 顶部的位置（根节点不需要）
@@ -72,14 +77,14 @@ type LNode = {
 
 /** 自底向上：先给每个子树算轮廓半高，再把兄弟按“上边界+间距+下边界”堆叠，避免交叉 */
 function build(node: MindNode, depth: number, path: string, x: number, collapsed: ReadonlySet<string>): LNode {
-  const { w, h, font } = measureBox(node.label, depth);
+  const { w, h, font, rows, clamp } = measureBox(node.label, depth);
   const isCollapsed = collapsed.has(path);
   const kids = (node.children || []).filter(Boolean);
   const visible = !isCollapsed ? kids : [];
 
   if (visible.length === 0) {
     return {
-      node, depth, path, x, w, h, font,
+      node, depth, path, x, w, h, font, rows, clamp,
       y: 0, rel: h / 2, upper: h / 2, lower: h / 2,
       hasKids: kids.length > 0, collapsed: isCollapsed, children: [],
     };
@@ -111,7 +116,7 @@ function build(node: MindNode, depth: number, path: string, x: number, collapsed
   }
 
   return {
-    node, depth, path, x, w, h, font,
+    node, depth, path, x, w, h, font, rows, clamp,
     y: 0, rel: parentCenter, upper, lower,
     hasKids: true, collapsed: isCollapsed, children,
   };
@@ -197,7 +202,21 @@ function MindCanvas({ data, collapsed, onToggle }: CanvasProps) {
             style={{ left: t.x + PAD, top: t.y + PAD - t.h / 2, width: t.w, height: t.h, fontSize: t.font, lineHeight: `${LINE_H}px` }}
             title={t.node.label}
           >
-            <span className="block">{t.node.label}</span>
+            <span
+              className="block min-w-0"
+              style={
+                t.clamp
+                  ? {
+                      display: "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: t.rows,
+                      overflow: "hidden",
+                    }
+                  : undefined
+              }
+            >
+              {t.node.label}
+            </span>
             {t.hasKids && (
               <span
                 aria-hidden

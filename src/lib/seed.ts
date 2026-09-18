@@ -34,6 +34,7 @@ async function persistCourse(
           courseId: course.id,
           order: index + 1,
           title: chapter.title,
+          priority: chapter.priority || "",
           summary: chapter.summary,
           notesMd: chapter.notesMd,
           mindmapJson: JSON.stringify(chapter.mindmap),
@@ -108,6 +109,7 @@ export async function replaceCourseContent(
           courseId,
           order: index + 1,
           title: chapter.title,
+          priority: chapter.priority || "",
           summary: chapter.summary,
           notesMd: chapter.notesMd,
           mindmapJson: JSON.stringify(chapter.mindmap),
@@ -160,30 +162,34 @@ export async function replaceCourseContent(
 
 /** 写入一门业务课程的实操流程：整体替换 manualFlows（不触碰学习宝典） */
 export async function replaceManualFlows(courseId: string, flows: ParsedManualFlow[]) {
-  return prisma.$transaction(async (tx) => {
-    await tx.manualFlow.deleteMany({ where: { courseId } });
-    for (const [index, flow] of flows.entries()) {
-      await tx.manualFlow.create({
-        data: {
-          courseId,
-          order: index + 1,
-          title: flow.title,
-          goal: flow.goal,
-          md: flow.md,
-          steps: {
-            create: flow.steps.map((step, stepIndex) => ({
-              order: stepIndex + 1,
-              kind: step.kind || "step",
-              actor: step.actor,
-              title: step.title,
-              detail: step.detail,
-            })),
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.manualFlow.deleteMany({ where: { courseId } });
+      for (const [index, flow] of flows.entries()) {
+        await tx.manualFlow.create({
+          data: {
+            courseId,
+            order: index + 1,
+            title: flow.title,
+            goal: flow.goal,
+            md: flow.md,
+            steps: {
+              create: flow.steps.map((step, stepIndex) => ({
+                order: stepIndex + 1,
+                kind: step.kind || "step",
+                actor: step.actor,
+                title: step.title,
+                detail: step.detail,
+              })),
+            },
           },
-        },
-      });
-    }
-    return prisma.manualFlow.count({ where: { courseId } });
-  }, { timeout: 30000 });
+        });
+      }
+    },
+    { timeout: 30000 },
+  );
+  // 事务提交后再统计，避免在事务内读到删除后的旧数量
+  return prisma.manualFlow.count({ where: { courseId } });
 }
 
 async function runSeed() {
@@ -242,14 +248,29 @@ async function runSeed() {
     await persistCourse(SAMPLE_COURSE, admin?.id, "sample", "内置示例：供应链入门");
   }
 
-  // book/ 三本教材固化出的内置课程（保理 / 票据 / 信用证知识库）
+  // book/ 6 门业务课程固化出的内置课程（线上保理 / 信用证 / 票据 / 凭证 / 订单融资 / 经销商）
   const adminUser = await prisma.user.findUnique({ where: { username: "admin" } });
   for (const item of BUILTIN_BOOK_COURSES) {
     const exists = await prisma.course.findFirst({
       where: { sourceType: "builtin", sourceName: item.sourceName },
     });
-    if (!exists) {
-      await persistCourse(item.data, adminUser?.id, "builtin", item.sourceName);
+    const course = exists ?? (await persistCourse(item.data, adminUser?.id, "builtin", item.sourceName));
+
+    await prisma.course.update({
+      where: { id: course.id },
+      data: {
+        business: item.business || course.business,
+        manualSourceName: item.manualSourceName || course.manualSourceName,
+        published: true,
+      },
+    });
+
+    // 实操宝典：只在还没有流程时写入，避免覆盖管理员后续手工调整
+    if (item.manualFlows?.length) {
+      const flowCount = await prisma.manualFlow.count({ where: { courseId: course.id } });
+      if (!flowCount) {
+        await replaceManualFlows(course.id, item.manualFlows);
+      }
     }
   }
 }

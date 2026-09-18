@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { hasManualDownload } from "@/lib/manual-source-file";
 import { CourseGeneratingNotice } from "@/components/CourseGeneratingNotice";
 import { ManualExplore, type ManualFlowData } from "@/components/ManualExplore";
 
@@ -24,6 +25,8 @@ export default async function ManualPage({ params }: PageProps<"/courses/[id]/ma
     return <CourseGeneratingNotice title={course.title} />;
   }
 
+  const canDownload = await hasManualDownload(course.id, course.manualSourceName);
+
   const flows: ManualFlowData[] = course.manualFlows.map((f) => ({
     id: f.id,
     order: f.order,
@@ -45,17 +48,36 @@ export default async function ManualPage({ params }: PageProps<"/courses/[id]/ma
       <header className="hero mt-4 rounded-3xl p-7">
         <div className="flex items-start justify-between gap-4">
           <p className="text-4xl">{course.coverEmoji}</p>
-          <nav className="flex rounded-full bg-white/15 p-1 text-sm">
-            <Link
-              href={`/courses/${id}`}
-              className="rounded-full px-4 py-1.5 text-white/90 transition hover:bg-white/10"
-            >
-              学习宝典
-            </Link>
-            <span className="rounded-full bg-white px-4 py-1.5 font-semibold text-sea-deep">
-              实操宝典
-            </span>
-          </nav>
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <nav className="flex rounded-full bg-white/15 p-1 text-sm">
+              <Link
+                href={`/courses/${id}`}
+                className="rounded-full px-4 py-1.5 text-white/90 transition hover:bg-white/10"
+              >
+                学习宝典
+              </Link>
+              <span className="rounded-full bg-white px-4 py-1.5 font-semibold text-sea-deep">
+                实操宝典
+              </span>
+            </nav>
+            {canDownload && (
+              <a
+                href={`/courses/${id}/manual/file`}
+                download
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3.5 py-2 text-xs font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/30"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-3.5 w-3.5"
+                  aria-hidden
+                >
+                  <path d="M10 2a.75.75 0 0 1 .75.75v7.19l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V2.75A.75.75 0 0 1 10 2Zm-5 12a1.5 1.5 0 0 0-1.5 1.5V17A1.5 1.5 0 0 0 5 18.5h10a1.5 1.5 0 0 0 1.5-1.5v-1.5A1.5 1.5 0 0 0 15 14H5Z" />
+                </svg>
+                下载这份文件
+              </a>
+            )}
+          </div>
         </div>
         <h1 className="display mt-2 text-3xl text-white">{course.title}</h1>
         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/60">

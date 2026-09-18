@@ -52,3 +52,7 @@ next-env.d.ts
 *.err
 .devserver.log
 .devserver.err.log
+
+# local deploy packages & machine backups
+*.tar.gz
+env-backup-system*.reg

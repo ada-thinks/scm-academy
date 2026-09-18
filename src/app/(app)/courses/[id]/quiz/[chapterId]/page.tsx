@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { chapterDisplayTitle } from "@/lib/format";
 import { QuizPlayer } from "@/components/QuizPlayer";
 import { CourseGeneratingNotice } from "@/components/CourseGeneratingNotice";
+import { PriorityBadge } from "@/components/PriorityBadge";
 
 export default async function QuizPage({
   params,
@@ -47,9 +48,12 @@ export default async function QuizPage({
 
   return (
     <div>
-      <h1 className="display text-3xl font-semibold text-ink">
-        闯关：{chapterDisplayTitle(chapter.order, chapter.title)}
-      </h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="display text-3xl font-semibold text-ink">
+          闯关：{chapterDisplayTitle(chapter.order, chapter.title)}
+        </h1>
+        <PriorityBadge priority={chapter.priority} />
+      </div>
       <p className="mt-2 text-neutral-text">{chapter.summary}</p>
       <div className="mt-6">
         <QuizPlayer

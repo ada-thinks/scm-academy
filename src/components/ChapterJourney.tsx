@@ -6,6 +6,7 @@ import { Markdown } from "./Markdown";
 import { Mindmap } from "./Mindmap";
 import { CaseDossier } from "./CaseDossier";
 import { ChapterAnchor, type AnchorItem } from "./ChapterAnchor";
+import { PriorityBadge } from "./PriorityBadge";
 
 type JourneyCase = {
   title: string;
@@ -31,6 +32,8 @@ type Props = {
   passed: boolean;
   /** 本关测验是否仍未解锁（教材可看，但还不能闯关） */
   locked: boolean;
+  /** 教材标注优先级（P1～P3），用于展示推荐指数 */
+  priority?: string;
 };
 
 /** 金句/引言里的 **强调** 在纯文本区只留文字 */
@@ -52,6 +55,7 @@ export function ChapterJourney({
   questionCount,
   passed,
   locked,
+  priority,
 }: Props) {
   const heroTitle = stripLevelPrefix(title);
   const sections = story.sections;
@@ -92,7 +96,10 @@ export function ChapterJourney({
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/70">
                 Level {String(order).padStart(2, "0")} · {courseTitle}
               </p>
-              <h1 className="display mt-1 text-3xl font-bold leading-tight xl:text-4xl">{heroTitle}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <h1 className="display text-3xl font-bold leading-tight xl:text-4xl">{heroTitle}</h1>
+                <PriorityBadge priority={priority} className="bg-white/95" />
+              </div>
             </div>
           </div>
           <p className="mt-5 max-w-3xl text-[15px] leading-8 text-white/90">{heroLead}</p>

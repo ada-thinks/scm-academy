@@ -53,7 +53,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
       {mode === "register" && (
         <label className="mt-6 block text-sm font-medium text-ink">
           昵称
-          <input name="name" required placeholder="怎么称呼你" className={inputCls} />
+          <input name="name" required placeholder="小队里显示的名字" className={inputCls} />
         </label>
       )}
       <label className="mt-5 block text-sm font-medium text-ink">

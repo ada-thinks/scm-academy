@@ -159,6 +159,9 @@ export async function deleteCourseAction(courseId: string) {
   try {
     const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course) return { error: "课程不存在，可能已被删除" };
+    if (course.sourceType === "builtin") {
+      return { error: "内置课程不允许删除" };
+    }
     // 显式清理关联数据，避免残留学习记录
     await prisma.$transaction(async (tx) => {
       await tx.attempt.deleteMany({ where: { chapter: { courseId } } });

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { CourseGeneratingNotice } from "@/components/CourseGeneratingNotice";
+import { PriorityBadge } from "@/components/PriorityBadge";
 
 export default async function CoursePage({ params }: PageProps<"/courses/[id]">) {
   const user = await requireUser();
@@ -81,12 +82,12 @@ export default async function CoursePage({ params }: PageProps<"/courses/[id]">)
               <div key={chapter.id} className={`md:flex ${left ? "md:justify-start" : "md:justify-end"}`}>
                 <article className="card map-node relative w-full rounded-3xl p-5 md:w-[46%]">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="flex-1">
                       <p className="text-xs font-semibold tracking-widest text-sea">LEVEL {chapter.order}</p>
                       <h2 className="mt-1 text-xl font-semibold leading-snug text-ink">{chapter.title}</h2>
                       <p className="mt-2 text-sm leading-6 text-neutral-text">{chapter.summary}</p>
                     </div>
-                    <div className="text-gold">{row?.stars ? "★".repeat(row.stars) : "☆☆☆"}</div>
+                    <PriorityBadge priority={chapter.priority} showLabel={false} className="text-gold" />
                   </div>
                   <div className="mt-4 flex gap-3">
                     <Link

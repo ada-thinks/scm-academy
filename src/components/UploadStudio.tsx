@@ -17,6 +17,7 @@ type CourseCard = {
   id: string;
   title: string;
   coverEmoji: string;
+  sourceType: string;
   sourceName: string | null;
   manualSourceName: string | null;
   business: string;
@@ -476,6 +477,7 @@ export function UploadStudio({
             const generating = course.status === "generating";
             const failed = course.status === "failed";
             const rowBusy = busy || deletingId === course.id || togglingPublishId === course.id || generating;
+            const isBuiltin = course.sourceType === "builtin";
             const sourceLabel = course.sourceName || course.manualSourceName || "";
             return (
               <li
@@ -489,6 +491,9 @@ export function UploadStudio({
                     </span>
                     {course.business && (
                       <span className="rounded-full bg-sand px-2 py-0.5 text-xs text-sea">{course.business}</span>
+                    )}
+                    {course.sourceType === "builtin" && (
+                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs text-violet-700">内置课程</span>
                     )}
                     {course.chapterCount > 0 && (
                       <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-600">
@@ -522,7 +527,7 @@ export function UploadStudio({
                   {failed && course.generationError && (
                     <p className="mt-1.5 max-w-xl truncate text-xs text-red-500">原因：{course.generationError}</p>
                   )}
-                  {confirmDeleteId === course.id && (
+                  {confirmDeleteId === course.id && !isBuiltin && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs">
                       <span className="text-coral">
                         删除「{course.title}」后，学习关卡、实操流程图与全部学习记录都会一并移除，确认删除？
@@ -578,7 +583,7 @@ export function UploadStudio({
                       className={
                         failed
                           ? "inline-flex items-center gap-1 rounded-full bg-sea px-3 py-1 text-xs text-white hover:bg-sea/90 disabled:opacity-50"
-                          : "rounded-full border border-neutral-border px-3 py-1 text-xs text-sea hover:bg-sand disabled:opacity-50"
+                          : "inline-flex items-center gap-1 rounded-full border border-neutral-border px-3 py-1 text-xs text-sea hover:bg-sand disabled:opacity-50"
                       }
                     >
                       <BookOpen size={12} />
@@ -594,14 +599,14 @@ export function UploadStudio({
                       className={
                         failed
                           ? "inline-flex items-center gap-1 rounded-full bg-sea px-3 py-1 text-xs text-white hover:bg-sea/90 disabled:opacity-50"
-                          : "rounded-full border border-neutral-border px-3 py-1 text-xs text-sea hover:bg-sand disabled:opacity-50"
+                          : "inline-flex items-center gap-1 rounded-full border border-neutral-border px-3 py-1 text-xs text-sea hover:bg-sand disabled:opacity-50"
                       }
                     >
                       <ClipboardList size={12} />
                       手册重解析
                     </button>
                   )}
-                  {!generating && (
+                  {!generating && !isBuiltin && (
                     <button
                       type="button"
                       disabled={busy || deletingId === course.id}

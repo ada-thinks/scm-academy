@@ -100,8 +100,7 @@ export default async function HomePage() {
                 <span style={{ width: `${percent}%` }} />
               </div>
               <p className="mt-2 text-xs text-mist">
-                {hasManual ? `${passed}/${total} 关已通 · 含操作手册` : `${passed}/${total} 关已通`} ·{" "}
-                {course.sourceName || "示例教材"}
+                {hasManual ? `${passed}/${total} 关已通 · 含操作手册` : `${passed}/${total} 关已通`}
               </p>
             </article>
           );

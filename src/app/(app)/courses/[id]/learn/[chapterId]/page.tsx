@@ -81,6 +81,7 @@ export default async function LearnPage({
         questionCount={chapter.questions.length}
         passed={progress?.status === "passed"}
         locked={locked}
+        priority={chapter.priority}
       />
     </div>
   );

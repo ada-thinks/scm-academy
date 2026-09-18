@@ -81,7 +81,8 @@ export function splitBookSections(text: string): BookSection[] {
   const hits: { label: string; seg: number[]; start: number }[] = [];
   for (const [i, raw] of lines.entries()) {
     const line = raw.trim();
-    const m = /^(\d+(?:\.\d+){1,3})\s+(.{2,40})$/.exec(line);
+    // 允许小节标题带 Markdown 前缀（如原文里的 “### 2.3 与相关产品比较”）
+    const m = /^#{0,6}\s*(\d+(?:\.\d+){1,3})\s+(.{2,40})$/.exec(line);
     if (!m) continue;
     const name = m[2].replace(/[（(【\[]…?.{0,20}[）)】\]]\s*$/u, "").trim();
     if (!name || /^[0-9.、．]+$/.test(name)) continue;
@@ -105,33 +106,47 @@ export function splitBookSections(text: string): BookSection[] {
   return subs.length >= 2 ? subs : [];
 }
 
+/** 从标题里拆出业务优先级标注，如「第四章 业务流程详解（优先级P1）」→ { title: 去标注标题, priority: "P1" } */
+export function splitPriorityTail(title: string) {
+  const m = /[（(]\s*优先级\s*[Pp]?\s*(\d)\s*[）)]/.exec(title.trim());
+  if (!m) return { title: title.trim(), priority: "" };
+  const priority = `P${m[1]}`;
+  const clean = title.trim().replace(/[（(]\s*优先级\s*[Pp]?\s*\d\s*[）)]/u, "").trim();
+  return { title: clean, priority };
+}
+
+export type TeachSection = { title: string; body: string; priority?: string };
+
 /** 按教材的一级标题（第X章 / # 一级标题）切块：有几个一级标题就生成几个关卡 */
-export function splitByTopChapters(text: string) {
+export function splitByTopChapters(text: string): TeachSection[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const heads: number[] = [];
   for (const [i, line] of lines.entries()) {
     const t = line.trim();
-    // “第一章 行业背景”“# 一、背景”这类一级标题行
-    if (/^#{1}\s*\S/u.test(t) || /^第[一二三四五六七八九十百\d]+章[\s：:]*\S/u.test(t)) heads.push(i);
+    // “第一章 行业背景”“# 一、背景”这类一级标题行。
+    // 注意：只认单 #（(?!#)），否则 “### 2.3 与相关产品比较” 这类小节会被误判成一级章节
+    if (/^#(?!#)\s*\S/u.test(t) || /^第[一二三四五六七八九十百\d]+章[\s：:]*\S/u.test(t)) heads.push(i);
   }
   // 找不到清晰一级标题时退化为通用切分
   if (heads.length < 2) return splitSections(text);
 
-  const parts: { title: string; body: string }[] = [];
+  const parts: TeachSection[] = [];
   for (let k = 0; k < heads.length; k++) {
     const end = k + 1 < heads.length ? heads[k + 1] : lines.length;
     const block = lines.slice(heads[k], end).join("\n").trim();
     if (!block) continue;
     const first = lines[heads[k]].trim();
+    // 先把优先级标注（优先级P1）提取并移除，再清其它注释尾巴（如“13页”）
     let title = first
       .replace(/^#{1,3}\s*/u, "")
-      .replace(/^第[一二三四五六七八九十百\d]+章\s*/u, "")
-      // 去掉“（优先级P1）”“（13页）”这类注释尾巴
+      .replace(/^第[一二三四五六七八九十百\d]+章\s*/u, "");
+    const { title: cleanTitle, priority } = splitPriorityTail(title);
+    title = cleanTitle
       .replace(/[（(【\[]…?[^）)】\]]{0,20}[）)】\]]\s*$/u, "")
       .trim();
     if (!title) title = `第 ${k + 1} 章`;
     const body = lines.slice(heads[k], end).join("\n").replace(/^#{1,3}\s*/u, "").trim();
-    if (body.length >= 40 || parts.length === 0) parts.push({ title, body });
+    if (body.length >= 40 || parts.length === 0) parts.push({ title, body, priority });
   }
   return parts;
 }
@@ -141,9 +156,11 @@ export function splitSections(text: string) {
   const heading = normalized.split(/(?=^#{1,3}\s+.+$|^第[一二三四五六七八九十0-9]+[章节关].+$|^[0-9]+[\.、]\s*\S+)/m);
   const parts = heading.map((block) => {
     const lines = block.trim().split("\n");
-    const title = lines[0]?.replace(/^#+\s*/, "").replace(/^[0-9]+[\.、]\s*/, "").trim() || "章节";
+    let title = lines[0]?.replace(/^#+\s*/, "").replace(/^[0-9]+[\.、]\s*/, "").trim() || "章节";
+    const { title: cleanTitle, priority } = splitPriorityTail(title);
+    title = cleanTitle;
     const body = lines.slice(1).join("\n");
-    return { title, body };
+    return { title, body, priority };
   }).filter((part) => part.title && part.body.trim().length > 40);
 
   if (parts.length >= 2) return parts.slice(0, 8);
@@ -153,6 +170,7 @@ export function splitSections(text: string) {
   return chunks.slice(0, 6).map((body, i) => ({
     title: firstSentence(body).slice(0, 18) || `要点 ${i + 1}`,
     body,
+    priority: "",
   }));
 }
 
@@ -174,7 +192,13 @@ export function windowForChapter(text: string, title: string, keywords: string[]
   return hay.slice(best.start, best.start + 4500);
 }
 
-export function teachChapter(index: number, title: string, body: string, filename: string): GeneratedChapter {
+export function teachChapter(
+  index: number,
+  title: string,
+  body: string,
+  filename: string,
+  priority?: string,
+): GeneratedChapter {
   const cleanTitle = title.replace(/^第\s*\d+\s*关[·•\s-]*/, "").trim() || title;
   const level = `第 ${index + 1} 关 · ${cleanTitle}`;
   const cleaned = cleanPdfText(body);
@@ -188,6 +212,7 @@ export function teachChapter(index: number, title: string, body: string, filenam
     const quote = bookQuote(cleaned, bookSections);
     return {
       title: level,
+      priority,
       summary: teachSummary(cleanTitle, cleaned, false),
       notesMd: writeBookNotes(cleanTitle, bookSections, quote),
       mindmap: buildBookMindmap(cleanTitle, bookSections, index),
@@ -205,6 +230,7 @@ export function teachChapter(index: number, title: string, body: string, filenam
 
   return {
     title: level,
+    priority,
     summary,
     notesMd: writeNotes(cleanTitle, cleaned, { manual, points, steps, exceptions, fields, quote }),
     mindmap: buildMindmap(cleanTitle, points, steps, exceptions, fields, index),
@@ -266,15 +292,15 @@ ${blocks.join("\n\n")}
 function buildBookMindmap(title: string, subs: BookSection[], index: number): MindNode {
   const children = subs.slice(0, 10).map((sub, i) => ({
     id: `b-${index}-${i}`,
-    label: compact(sub.label, 16),
+    label: compact(sub.label, 20),
     children: bookBullets(sub.body)
       .slice(0, 4)
       .map((point, j) => ({
         id: `bk-${index}-${i}-${j}`,
-        label: compact(point, 18),
+        label: compact(point, 24),
       })),
   }));
-  return { id: `c${index}`, label: compact(title, 12), children };
+  return { id: `c${index}`, label: compact(title, 14), children };
 }
 
 function bookQuote(body: string, subs: BookSection[]) {

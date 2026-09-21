@@ -132,6 +132,12 @@ body {
   background: linear-gradient(90deg, var(--primary), var(--primary-hover));
 }
 
+/* 闯关正文：限制在卡片宽度内，宽表格在容器内横向滚动，不改单元格换行规则 */
+.prose-notes {
+  max-width: 100%;
+  min-width: 0;
+}
+
 .prose-notes h2 { font-size: 1.2rem; margin: 1.2rem 0 0.4rem; color: var(--ink); }
 .prose-notes h3 { font-size: 1.05rem; margin: 1rem 0 0.3rem; color: var(--ink); }
 .prose-notes p, .prose-notes li { line-height: 1.8; color: var(--neutral-text); }

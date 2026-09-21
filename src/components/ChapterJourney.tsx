@@ -155,7 +155,7 @@ export function ChapterJourney({
                     {String(index + 1).padStart(2, "0")}
                   </span>
                 </div>
-                <div className="ml-[4.25rem]">
+                <div className="ml-[4.25rem] min-w-0">
                   <p className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f2ff] px-3 py-1 text-xs font-semibold text-[#2664fd]">
                     <span aria-hidden>{sec.icon}</span>
                     {sec.tag}
@@ -163,7 +163,7 @@ export function ChapterJourney({
                   <h2 className="display mt-3 text-2xl font-bold leading-snug text-ink xl:text-[1.7rem]">
                     {sec.title}
                   </h2>
-                  <div className="card mt-4 rounded-[1.5rem] px-6 py-5 lg:px-7">
+                  <div className="card mt-4 min-w-0 overflow-x-auto rounded-[1.5rem] px-6 py-5 lg:px-7">
                     <Markdown source={sec.body} />
                   </div>
                 </div>

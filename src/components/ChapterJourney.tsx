@@ -140,7 +140,7 @@ export function ChapterJourney({
 
       {/* ③-⑥ 自上而下的认知主线，一屏一段 */}
       {sections.length > 0 && (
-        <section className="relative mx-auto mt-12 max-w-3xl" aria-label="认知主线">
+        <section className="relative mx-auto mt-12 max-w-5xl" aria-label="认知主线">
           {/* 连接轴 */}
           <span className="absolute bottom-6 left-[23px] top-1 w-0.5 rounded-full bg-neutral-divider" aria-hidden />
           <div className="space-y-10">
@@ -175,7 +175,7 @@ export function ChapterJourney({
 
       {/* 记住一句 */}
       {story.quote && (
-        <section id="jw-quote" className="mx-auto mt-12 max-w-3xl scroll-mt-24">
+        <section id="jw-quote" className="mx-auto mt-12 max-w-5xl scroll-mt-24">
           <div
             className="relative overflow-hidden rounded-[1.5rem] border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-7 py-6"
           >
@@ -210,7 +210,7 @@ export function ChapterJourney({
       )}
 
       {/* 闯关 CTA：未解锁的关引导回地图，不提供无效的闯关入口 */}
-      <div className="mx-auto mt-14 max-w-3xl pb-4 text-center">
+      <div className="mx-auto mt-14 max-w-5xl pb-4 text-center">
         {locked ? (
           <Link
             href={`/courses/${courseId}`}

@@ -12,9 +12,6 @@ import {
   unlockNextChapter,
   type CoursePurpose,
 } from "./course-service";
-import { buildCasePack, normalizePack } from "./case-engine";
-import { BIZ_OPTIONS } from "./case-types";
-import type { BizType, CaseEngineParams, CasePack } from "./case-types";
 import { starsFromScore, xpFromResult } from "./gamification";
 import { seedIfNeeded } from "./seed";
 import { deleteManualSource, deleteSource } from "./source-store";
@@ -222,118 +219,6 @@ export async function saveAiSettingsAction(formData: FormData) {
   }
   revalidatePath("/admin");
   return { ok: true };
-}
-
-/* ------------------------------------------------------------------ */
-/* 实战案例引擎（admin）                                                 */
-/* ------------------------------------------------------------------ */
-
-function parseCaseParams(formData: FormData): CaseEngineParams | null {
-  const rawBiz = String(formData.get("bizType") || "").trim();
-  const biz = BIZ_OPTIONS.some((o) => o.value === rawBiz) ? (rawBiz as BizType) : "factoring";
-  const num = (name: string) => Number(String(formData.get(name) || "").replace(/[^\d.]/g, ""));
-  const amountWan = num("amountWan");
-  const tenorDays = Math.round(num("tenorDays"));
-  const rateBp = num("rateBp");
-  const serviceBp = num("serviceBp");
-  if (!(amountWan > 0) || !(tenorDays > 0) || !(rateBp > 0)) return null;
-  const text = (name: string, fallback: string) => {
-    const value = String(formData.get(name) || "").trim();
-    return value || fallback;
-  };
-  return {
-    bizType: biz,
-    borrower: text("borrower", "深圳云帆智造有限公司"),
-    counterparty: text("counterparty", "华信工业集团"),
-    amountWan,
-    tenorDays,
-    rateBp,
-    serviceBp: serviceBp > 0 ? serviceBp : 2,
-    rating: text("rating", "AA"),
-  };
-}
-
-export async function generateCaseAction(formData: FormData) {
-  const user = await requireAdmin();
-  if (!user) return { error: "只有管理员可以生成实战案例" };
-  const params = parseCaseParams(formData);
-  if (!params) return { error: "参数不正确：金额、占用天数、日费率都要是正数" };
-  try {
-    const pack = await buildCasePack(params);
-    return { ok: true, pack, usedAi: pack.usedAi };
-  } catch (error) {
-    console.error(error);
-    const raw = error instanceof Error ? error.message : "生成失败";
-    return { error: raw.slice(0, 180) };
-  }
-}
-
-export async function attachCasePackAction(formData: FormData) {
-  const user = await requireAdmin();
-  if (!user) return { error: "只有管理员可以挂载案例" };
-  const courseId = String(formData.get("courseId") || "").trim();
-  const chapterId = String(formData.get("chapterId") || "").trim();
-  const rawPack = String(formData.get("pack") || "");
-  if (!courseId || !chapterId || !rawPack) return { error: "参数缺失：请选择课程与章节" };
-
-  let pack: CasePack;
-  try {
-    pack = normalizePack(JSON.parse(rawPack));
-  } catch {
-    return { error: "案例数据不完整，请重新生成后再挂载" };
-  }
-  if (!pack.case.title || !pack.case.scene || !pack.questions.length) {
-    return { error: "案例内容不完整，请重新生成后再挂载" };
-  }
-
-  try {
-    await prisma.$transaction(
-      async (tx) => {
-        const chapter = await tx.chapter.findFirst({ where: { id: chapterId, courseId } });
-        if (!chapter) throw new Error("章节不存在，请刷新后重试");
-        const top = await tx.question.findFirst({
-          where: { chapterId },
-          orderBy: { order: "desc" },
-          select: { order: true },
-        });
-        const base = top?.order ?? -1;
-        for (const [index, question] of pack.questions.entries()) {
-          await tx.question.create({
-            data: {
-              chapterId,
-              type: question.type,
-              stem: question.stem,
-              optionsJson: JSON.stringify(question.options),
-              answerJson: JSON.stringify(question.answer),
-              explanation: question.explanation,
-              order: base + 1 + index,
-            },
-          });
-        }
-        await tx.caseStudy.create({
-          data: {
-            chapterId,
-            title: pack.case.title,
-            scene: pack.case.scene,
-            analysis: pack.case.analysis,
-            metaJson: JSON.stringify(pack.meta ?? {}),
-          },
-        });
-      },
-      { timeout: 30000 },
-    );
-  } catch (error) {
-    console.error(error);
-    const raw = error instanceof Error ? error.message : "挂载失败";
-    return { error: raw.slice(0, 180) };
-  }
-
-  revalidatePath("/admin");
-  revalidatePath("/admin/case-engine");
-  revalidatePath(`/courses/${courseId}`);
-  revalidatePath(`/courses/${courseId}/learn/${chapterId}`);
-  revalidatePath(`/courses/${courseId}/quiz/${chapterId}`);
-  return { ok: true, courseId, chapterId };
 }
 
 class LockedChapterError extends Error {}
